@@ -1,5 +1,6 @@
 module Main where
 import Data.Array.Base
+import Data.List
 import Data.Array.ST
 import Control.Monad
 import Control.Monad.ST
@@ -20,7 +21,6 @@ data Config = Config {
   reps_ :: Int,
   maxInd_ :: Int,
   numPoints_ :: Int,
-  startColour_ :: (Word8, Word8, Word8),
   endColour_ :: (Word8, Word8, Word8)
   }
 
@@ -104,32 +104,35 @@ simulate conf n
   | n > 0 = updateSystem conf $ simulate conf (n - 1)
   | otherwise = (initPoints conf, initHistogram conf)
 
+getScaler :: [Double] -> (Double -> Double)
+getScaler list = output
+  where maxVal = maximum list
+        normed = map (/ maxVal) list
+        middleInd = div (length normed) 2
+        mid = sort normed !! middleInd
+        m = logBase mid 0.5
+        output x = (x / maxVal) ** m
+
 sysToImage :: Config -> System -> Image PixelRGB16
 sysToImage conf (_, hist) = generateImage f sideLength sideLength
-  where norm = sum (elems hist) / fromIntegral numPoints
-        val x y = hist ! coordToInd conf (x, y)
-        f x y = PixelRGB16 (256 * red x y) (256 * green x y) (256 * blue x y) 
-        red x y = fromIntegral r0 + floor (fromIntegral (r1 - r0) * val x y / norm)
-        green x y = fromIntegral g0 + floor (fromIntegral (g1 - g0) * val x y / norm)
-        blue x y = fromIntegral b0 + floor (fromIntegral (b1 - b0) * val x y / norm)
+  where norm = getScaler $ elems hist
+        val x y = norm $ hist ! coordToInd conf (x, y)
+        f x y = PixelRGB16 (256 * col x y r0 r1) (256 * col x y g0 g1) (256 * col x y b0 b1) 
+        col x y c0 c1 = fromIntegral c0 + floor (fromIntegral (c1 - c0) * val x y)
         sideLength = sideLength_ conf
-        numPoints = numPoints_ conf
-        (r0, g0, b0) = startColour_ conf
+        (r0, g0, b0) = (0, 0, 0)
         (r1, g1, b1) = endColour_ conf
 
 --A lot of duplication below. Probably a good way to factor it into above with
 --an Either, but copying and pasting was much easier.
 sysToGifImage :: Config -> System -> Image PixelRGB8
 sysToGifImage conf (_, hist) = generateImage f sideLength sideLength
-  where norm = sum (elems hist) / fromIntegral numPoints
-        val x y = hist ! coordToInd conf (x, y)
-        f x y = PixelRGB8 (red x y) (green x y) (blue x y) 
-        red x y =  r0 + floor (fromIntegral (r1 - r0) * val x y / norm)
-        green x y =  g0 + floor (fromIntegral (g1 - g0) * val x y / norm)
-        blue x y =  b0 + floor (fromIntegral (b1 - b0) * val x y / norm)
+  where norm = getScaler $ elems hist
+        val x y = norm $ hist ! coordToInd conf (x, y)
+        f x y = PixelRGB8 (col x y r0 r1) (col x y g0 g1) (col x y b0 b1) 
+        col x y c0 c1 = fromIntegral c0 + floor (fromIntegral (c1 - c0) * val x y)
         sideLength = sideLength_ conf
-        numPoints = numPoints_ conf
-        (r0, g0, b0) = startColour_ conf
+        (r0, g0, b0) = (0, 0, 0)
         (r1, g1, b1) = endColour_ conf
 
 writeImage :: Config -> System -> FilePath -> IO ()
@@ -146,18 +149,20 @@ genGifConfig = do
   sideLength <- read <$> getLine
   putStrLn "Choose the number of steps to simulate (128-256 normally works)."
   reps <- read <$> getLine
-  putStrLn "Choose the start colour for the colour map as a tuple of Ints (0-255, 0-255, 0-255)"
-  startColour <- read <$> getLine
-  putStrLn "Choose a end color for the colour map as a tuple of Ints (0-255, 0-255, 0-255)"
+  putStrLn "Choose a end colour for the colour map as a tuple of Ints (0-255, 0-255, 0-255)"
   endColour <- read <$> getLine
   let oneConfig x = Config {sideLength_ = sideLength,
                             h_ = x,
                             reps_ = reps,
                             maxInd_ = sideLength ^ 2 - 1,
                             numPoints_ = sideLength ^ 2,
-                            startColour_ = startColour,
                             endColour_ = endColour}
       amplitude = upperH - lowerH
+      --for linear interpolation of h. doesn't look as good.
+      --ups = take 16 [lowerH, lowerH + amplitude/16..]
+      --downs = take 16 [upperH, upperH - amplitude/16..]
+      --steps = ups ++ downs
+      --for sinusoidal interpolation of h.
       zeroTo2Pi = map (\x -> x * pi / 32) $ take 64 [0..]
       steps = map (\x -> lowerH + amplitude * (1 + cos x)) zeroTo2Pi
   return $ map oneConfig steps
@@ -171,16 +176,13 @@ genImageConfig = do
   sideLength <- read <$> getLine
   putStrLn "Choose the number of steps to simulate (128-256 normally works)."
   reps <- read <$> getLine
-  putStrLn "Choose a starting color for the colour map in the form (0-255, 0-255, 0-255)"
-  startColour <- read <$> getLine
-  putStrLn "Choose an ending color for the colour map in the form (0-255, 0-255, 0-255)"
+  putStrLn "Choose a hue for the colour map in the form (0-255, 0-255, 0-255)"
   endColour <- read <$> getLine
   return $ Config {sideLength_ = sideLength,
                    h_ = h,
                    reps_ = reps,
                    maxInd_ = sideLength ^ 2 - 1,
                    numPoints_ = sideLength ^ 2,
-                   startColour_ = startColour,
                    endColour_ = endColour}
 
 genConfig :: IO (Either Config GifConfig)
