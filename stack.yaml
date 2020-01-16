@@ -34,8 +34,9 @@ packages:
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
 #
-#extra-deps:
-#- yarr-1.4.0.1@sha256:22ff2b71e4b3555a705631f142462d4ab6aea1599811d9516b3fadd68af9be15,3489
+extra-deps:
+- hip-1.5.3.0@sha256:11a3b06a222abae8d2f1da717890b24392de1df22a2c2bb388922565a73dd9be,6400
+- ffmpeg-light-0.12.2.2@sha256:4dee7ecc5c2ea0601337939462ad147450759f90e3d87b6952e1c3926f5e8ef3,4404
 
 # - acme-missiles-0.3
 # - git: https://github.com/commercialhaskell/stack.git
