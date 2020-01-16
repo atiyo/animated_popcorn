@@ -28,4 +28,4 @@ using underscores as delimiters.
 
 Image | Gif 
 ------------ | --------
-![image](image_15e-2_512_256_(255,128,255).jpg "Static Image")|![gif](gif_1e-2_1.1_256_256_(128,255,255)_upsampled.gif "GIF output")
+![image](output/image_15e-2_512_256_(255,128,255).jpg "Static Image")|![gif](output/gif_1e-2_1.1_256_256_(128,255,255)_upsampled.gif "GIF output")
